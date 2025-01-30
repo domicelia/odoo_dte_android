@@ -23,7 +23,7 @@ class _MyAppState extends State<MyApp> {
   bool isDownloading = false;
   bool isConnected = false; // variable para verificar conexion de servidor
   bool isLoading = false; // se pone en True mientras se realiza la verficacion de conexion, al  finalizar la verificacion de conex se pone en false
-  String url = 'http://190.186.18.34:8055';
+  String url = '';
   @override
   void initState() {
     super.initState();
@@ -33,10 +33,9 @@ class _MyAppState extends State<MyApp> {
   /// Verificar conexion con 'HttpClient'
   Future<bool> checkUrlConnectionHttpClient(String url) async {
     try {
-      debugPrint("URL: $url");
       final uri = Uri.parse(url);
-      final request = await HttpClient().headUrl(uri);
-      final response = await request.close();
+      final request = await HttpClient().headUrl(uri).timeout(Duration(seconds: 5));
+      final response = await request.close().timeout(Duration(seconds: 5));
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -47,14 +46,27 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       isLoading = true;
     });
-    debugPrint("verificando conexion: $isLoading");
-    isConnected = await checkUrlConnectionHttpClient(url);
-    // isConnected = await checkUrlConnectionHttp(url)
-    debugPrint("existe conexion: $isConnected");
+    Directory? directory = await getExternalStorageDirectory();
+    String archivo = '${directory?.path}/Config.ini';
+    File configFile = File(archivo);
+    if (await configFile.exists() && (await configFile.readAsString()).contains('HOST=')) {
+      String content = await configFile.readAsString();
+      RegExp regExp = RegExp(r"HOST=(.*)"); // BUSCAR LINEA HOST
+      Match? match = regExp.firstMatch(content);
+      if (match != null) {
+        url = match.group(1)!;
+        isConnected = await checkUrlConnectionHttpClient(url);
+        // isConnected = await checkUrlConnectionHttp(url)
+      }else{
+        isConnected=false;
+      }
+    }else{
+       isConnected = false;
+    }
+    
     setState(() {
       isLoading = false;
     });
-    debugPrint("finalizo verificando conexion: $isLoading");
   }
   void onPopInvokedWithResult(bool onPop, Object? _) async {
     if (onPop) {
